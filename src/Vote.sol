@@ -20,6 +20,18 @@ contract Vote {
     mapping(address => mapping(bytes32 => bool)) public voted;
 
     mapping(address => mapping(bytes32 => bool)) public refunded;
+    mapping(address => bool) public masterProposers;
+
+    address owner;
+    uint256 public thresholdMasterPorposer;
+
+    modifier onlyOwner() {
+        require(msg.sender == owner, "not authorized");
+        _;
+    }
+    constructor() {
+        owner = msg.sender;
+    }
 
     function createProposal(
         bytes memory _content,
@@ -58,6 +70,36 @@ contract Vote {
             contents[i] = proposals[id].content;
         }
         return contents;
+    }
+
+    function getProposalIds(
+        address _proposer
+    ) public view returns (bytes32[] memory) {
+        uint256[] memory props = usersProposals[_proposer];
+        bytes32[] memory ids = new bytes32[](props.length);
+        for (uint i = 0; i < props.length; ++i) {
+            ids[i] = proposalIds[props[i]];
+        }
+        return ids;
+    }
+
+    function setMasterProposer(address _proposer) public {
+        bytes32[] memory ids = getProposalIds(_proposer);
+        Proposal memory prop;
+        uint256 numOfSuccessfulProposals;
+        for (uint i = 0; i < ids.length; ++i) {
+            prop = proposals[ids[i]];
+            if (block.timestamp < prop.end) continue;
+            if (prop.active == true) continue;
+            if (prop.refundable == true) continue;
+            numOfSuccessfulProposals++;
+        }
+        require(
+            numOfSuccessfulProposals >= thresholdMasterPorposer,
+            "not eligible"
+        );
+
+        masterProposers[_proposer] = true;
     }
 
     function vote(bytes32 _id, bool _vote) public payable {
@@ -106,5 +148,9 @@ contract Vote {
             ""
         );
         require(success, "not successful");
+    }
+
+    function setThresholdMasterProposer(uint256 _threshold) public onlyOwner {
+        thresholdMasterPorposer = _threshold;
     }
 }
