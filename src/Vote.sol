@@ -139,6 +139,16 @@ contract Vote {
         }
     }
 
+    function multiExecute(
+        bytes32[] memory _ids,
+        address[] memory _targets
+    ) public {
+        require(_ids.length == _targets.length, "mismatched length");
+        for (uint256 i = 0; i < _ids.length; ++i) {
+            execute(_ids[i], _targets[i]);
+        }
+    }
+
     function refund(bytes32 _id) public {
         require(proposals[_id].refundable, "nonrefundable");
         require(voted[msg.sender][_id], "not voted");
