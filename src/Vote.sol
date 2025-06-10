@@ -7,11 +7,12 @@ contract Vote {
         bytes content;
         bool active;
         address executor;
-        uint8 upVotes;
-        uint8 downVotes;
+        uint32 upVotes;
+        uint32 downVotes;
         uint256 end;
-        uint8 fee;
+        uint32 fee;
         bool refundable;
+        address[] voters;
     }
     mapping(bytes32 => Proposal) public proposals;
     bytes32[] public proposalIds;
@@ -37,7 +38,7 @@ contract Vote {
         bytes memory _content,
         address _executor,
         uint256 _end,
-        uint8 _fee
+        uint32 _fee
     ) public {
         bytes32 id = keccak256(abi.encode(_content, _executor, _end, _fee));
         require(!proposals[id].active, "already created");
@@ -52,7 +53,8 @@ contract Vote {
             downVotes: 0,
             end: _end,
             fee: _fee,
-            refundable: false
+            refundable: false,
+            voters: new address[](0)
         });
 
         uint256 index = proposalIds.length;
@@ -117,6 +119,7 @@ contract Vote {
         } else {
             prop.downVotes++;
         }
+        prop.voters.push(msg.sender);
     }
 
     function execute(bytes32 _id, address _target) public {
@@ -162,5 +165,29 @@ contract Vote {
 
     function setThresholdMasterProposer(uint256 _threshold) public onlyOwner {
         thresholdMasterPorposer = _threshold;
+    }
+
+    function reduceFee(bytes32 _id, uint32 _targetFee) public {
+        Proposal memory prop = proposals[_id];
+        require(prop.creator == msg.sender, "not the proposal creator");
+        require(prop.end > block.timestamp, "ended");
+        require(prop.active, "not active");
+        require(!prop.refundable, "refundable");
+
+        uint256 excess = prop.fee - _targetFee;
+        require(excess > 0, "same fee");
+
+        prop.fee = _targetFee;
+
+        uint256 totalFeeRefund = prop.voters.length * excess;
+        require(address(this).balance >= totalFeeRefund, "not enough balance");
+
+        address user;
+        for (uint256 i = 0; i < prop.voters.length; ++i) {
+            user = prop.voters[i];
+            require(voted[msg.sender][_id], "not voted");
+            (bool success, ) = payable(user).call{value: excess}("");
+            require(success, "unsuccessful call");
+        }
     }
 }
