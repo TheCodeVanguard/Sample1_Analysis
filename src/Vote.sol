@@ -7,10 +7,10 @@ contract Vote {
         bytes content;
         bool active;
         address executor;
-        uint256 upVotes;
-        uint256 downVotes;
+        uint8 upVotes;
+        uint8 downVotes;
         uint256 end;
-        uint256 fee;
+        uint8 fee;
         bool refundable;
     }
     mapping(bytes32 => Proposal) public proposals;
@@ -37,7 +37,7 @@ contract Vote {
         bytes memory _content,
         address _executor,
         uint256 _end,
-        uint256 _fee
+        uint8 _fee
     ) public {
         bytes32 id = keccak256(abi.encode(_content, _executor, _end, _fee));
         require(!proposals[id].active, "already created");
